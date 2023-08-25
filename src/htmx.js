@@ -1139,6 +1139,7 @@ return (function () {
         }
 
         var WHITESPACE = /\s/;
+        var COMMA = /,/;
         var WHITESPACE_OR_COMMA = /[\s,]/;
         var SYMBOL_START = /[_$a-zA-Z]/;
         var SYMBOL_CONT = /[_$a-zA-Z0-9]/;
@@ -1232,6 +1233,21 @@ return (function () {
             return result;
         }
 
+        var TRIGGER_MODIFIERS = ['changed', 'once', 'consume', 'delay', 'from', 'target', 'throttle', 'queue', 'root', 'threshold'];
+
+        function consumeUntilNextModifier(tokens) {
+            var result = "";
+            var previousToken = "";
+
+            while (tokens.length > 0 && !COMMA.test(tokens[0]) && (!WHITESPACE.test(previousToken) || TRIGGER_MODIFIERS.indexOf(tokens[0]) === -1)) {
+                var token = tokens.shift();
+                previousToken = token;
+                result += token;
+            }
+
+            return result.trim();
+        }
+
         var INPUT_SELECTOR = 'input, textarea, select';
 
         /**
@@ -1280,31 +1296,22 @@ return (function () {
                                     triggerSpec.delay = parseInterval(consumeUntil(tokens, WHITESPACE_OR_COMMA));
                                 } else if (token === "from" && tokens[0] === ":") {
                                     tokens.shift();
-                                    var from_arg = consumeUntil(tokens, WHITESPACE_OR_COMMA);
-                                    if (from_arg === "closest" || from_arg === "find" || from_arg === "next" || from_arg === "previous") {
-                                        tokens.shift();
-                                        var selector = consumeUntil(
-                                            tokens,
-                                            WHITESPACE_OR_COMMA
-                                        )
-                                        // `next` and `previous` allow a selector-less syntax
-                                        if (selector.length > 0) {
-                                            from_arg += " " + selector;
-                                        }
-                                    }
-                                    triggerSpec.from = from_arg;
+                                    triggerSpec.from = consumeUntilNextModifier(tokens);
                                 } else if (token === "target" && tokens[0] === ":") {
                                     tokens.shift();
-                                    triggerSpec.target = consumeUntil(tokens, WHITESPACE_OR_COMMA);
+                                    triggerSpec.target = consumeUntilNextModifier(tokens);
                                 } else if (token === "throttle" && tokens[0] === ":") {
                                     tokens.shift();
                                     triggerSpec.throttle = parseInterval(consumeUntil(tokens, WHITESPACE_OR_COMMA));
                                 } else if (token === "queue" && tokens[0] === ":") {
                                     tokens.shift();
                                     triggerSpec.queue = consumeUntil(tokens, WHITESPACE_OR_COMMA);
-                                } else if ((token === "root" || token === "threshold") && tokens[0] === ":") {
+                                } else if (token === "root" && tokens[0] === ":") {
                                     tokens.shift();
-                                    triggerSpec[token] = consumeUntil(tokens, WHITESPACE_OR_COMMA);
+                                    triggerSpec.root = consumeUntilNextModifier(tokens);
+                                } else if (token === "threshold" && tokens[0] === ":") {
+                                    tokens.shift();
+                                    triggerSpec.threshold = consumeUntil(tokens, WHITESPACE_OR_COMMA);
                                 } else {
                                     triggerErrorEvent(elt, "htmx:syntax:error", {token:tokens.shift()});
                                 }
